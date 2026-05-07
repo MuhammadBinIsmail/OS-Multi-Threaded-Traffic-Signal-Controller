@@ -5,11 +5,12 @@
 
 void *emergency_thread(void *arg) {
     SharedState *state = (SharedState *)arg;
-    srand(time(NULL));
+    srand(time(NULL) + 1);
 
     int next_ev_id = 1000;
 
     while (state->running) {
+
         int interval_ms = MIN_EMERGENCY_INTERVAL_MS +
                           rand() % (MAX_EMERGENCY_INTERVAL_MS - MIN_EMERGENCY_INTERVAL_MS);
 
@@ -37,13 +38,14 @@ void *emergency_thread(void *arg) {
 
         pthread_mutex_lock(&state->emergency_mutex);
         if (!pq_is_empty(&state->emergency_pq)) {
+
             EmergencyVehicle top = pq_pop(&state->emergency_pq);
             state->emergency_active = 1;
             state->emergency_lane   = top.lane;
             pthread_mutex_unlock(&state->emergency_mutex);
 
-            printf("EMERGENCY: Forcing %s lane GREEN for vehicle %d\n",
-                   lane_name(top.lane), top.vehicle_id);
+            printf("EMERGENCY: Forcing %s lane GREEN for vehicle %d (priority %d)\n",
+                   lane_name(top.lane), top.vehicle_id, top.priority);
 
             sem_wait(&state->intersection_sem);
             state->signal[top.lane] = GREEN;
@@ -62,6 +64,7 @@ void *emergency_thread(void *arg) {
 
             printf("EMERGENCY: %s lane cleared. Resuming normal cycle.\n",
                    lane_name(top.lane));
+
         } else {
             pthread_mutex_unlock(&state->emergency_mutex);
         }
