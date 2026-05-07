@@ -89,3 +89,90 @@ void process_vehicles(int lane_id, SharedState* state, int duration_ms) {
 
     msleep(duration_ms);
 }
+
+int check_emergency_priority(int lane_id, SharedState* state) {
+    pthread_mutex_lock(&state->emergency_mutex);
+    int is_emergency = (state->emergency_active && 
+                       state->emergency_lane == lane_id);
+    pthread_mutex_unlock(&state->emergency_mutex);
+    
+    return is_emergency;
+}
+
+void execute_normal_cycle(int lane_id, SharedState* state) {
+
+    state->signal[lane_id] = RED;
+    printf("[%s Lane] RED - Waiting for intersection access\n", lane_name(lane_id));
+    
+    sem_wait(&state->intersection_sem);
+    
+    state->signal[lane_id] = GREEN;
+    
+    pthread_mutex_lock(&state->queue_mutex[lane_id]);
+    int queue_count = state->queue_count[lane_id];
+    pthread_mutex_unlock(&state->queue_mutex[lane_id]);
+    
+    int green_duration = calculate_green_duration(queue_count);
+    printf("[%s Lane] GREEN phase starting (duration: %d ms, queue: %d vehicles)\n",
+           lane_name(lane_id), green_duration, queue_count);
+    
+    process_vehicles(lane_id, state, green_duration);
+    
+    state->signal[lane_id] = YELLOW;
+    printf("[%s Lane] YELLOW - Transition phase\n", lane_name(lane_id));
+    msleep(YELLOW_MS);
+    
+    state->signal[lane_id] = RED;
+    sem_post(&state->intersection_sem);
+    printf("[%s Lane] RED - Released intersection\n", lane_name(lane_id));
+    
+    msleep(RED_SLEEP_MS);
+}
+
+void execute_emergency_cycle(int lane_id, SharedState* state) {
+    printf("\n*** [%s Lane] EMERGENCY VEHICLE DETECTED! ***\n", lane_name(lane_id));
+  
+    sem_wait(&state->intersection_sem);
+   
+    state->signal[lane_id] = GREEN;
+    printf("[%s Lane] EMERGENCY GREEN - Priority access granted\n", lane_name(lane_id));
+   
+    int emergency_duration = BASE_GREEN_MS + EMERGENCY_WAIT_MS;
+    process_vehicles(lane_id, state, emergency_duration);
+
+    state->signal[lane_id] = YELLOW;
+    msleep(YELLOW_MS);
+
+    state->signal[lane_id] = RED;
+    sem_post(&state->intersection_sem);
+   
+    pthread_mutex_lock(&state->emergency_mutex);
+    state->emergency_active = 0;
+    state->emergency_lane = -1;
+    pthread_mutex_unlock(&state->emergency_mutex);
+    
+    printf("[%s Lane] EMERGENCY complete - Normal operation resumed\n\n", lane_name(lane_id));
+}
+
+void run_intersection_control(int lane_id, SharedState* state) {
+    printf("[%s Lane] Intersection control started\n", lane_name(lane_id));
+    
+    while (state->running) {
+
+        if (check_emergency_priority(lane_id, state)) {
+            execute_emergency_cycle(lane_id, state);
+        } 
+
+        else if (state->emergency_active) {
+
+            printf("[%s Lane] Yielding to emergency vehicle\n", lane_name(lane_id));
+            msleep(500); 
+        }
+
+        else {
+            execute_normal_cycle(lane_id, state);
+        }
+    }
+    
+    printf("[%s Lane] Intersection control stopped\n", lane_name(lane_id));
+}
