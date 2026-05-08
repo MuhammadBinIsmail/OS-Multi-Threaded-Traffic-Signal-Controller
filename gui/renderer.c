@@ -8,11 +8,13 @@ static void draw_signal(SDL_Renderer *r, int x, int y, SignalState sig) {
     SDL_Color dark   = { 50,  50,  50, 255};
 
     SDL_Color colors[3] = {dark, dark, dark};
+
     if (sig == RED)    colors[0] = red;
     if (sig == YELLOW) colors[1] = yellow;
     if (sig == GREEN)  colors[2] = green;
 
-    for (int i = 0; i < 3; i++) {
+    int i;
+    for (i = 0; i < 3; i++) {
         SDL_SetRenderDrawColor(r, colors[i].r, colors[i].g, colors[i].b, 255);
         SDL_Rect rect = {x, y + i * 40, 30, 30};
         SDL_RenderFillRect(r, &rect);
@@ -40,6 +42,7 @@ int renderer_init(RenderContext *ctx) {
         printf("TTF_Init error: %s\n", TTF_GetError());
         return -1;
     }
+
     ctx->window = SDL_CreateWindow(
         "Traffic Signal Controller",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -49,16 +52,22 @@ int renderer_init(RenderContext *ctx) {
         printf("Window error: %s\n", SDL_GetError());
         return -1;
     }
+
     ctx->renderer = SDL_CreateRenderer(ctx->window, -1, SDL_RENDERER_ACCELERATED);
     if (!ctx->renderer) {
         printf("Renderer error: %s\n", SDL_GetError());
         return -1;
     }
+
     ctx->font = TTF_OpenFont("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 14);
+    if (!ctx->font) {
+        ctx->font = TTF_OpenFont("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 14);
+    }
     if (!ctx->font) {
         printf("Font error: %s\n", TTF_GetError());
         return -1;
     }
+
     return 0;
 }
 
@@ -67,25 +76,33 @@ void renderer_draw(RenderContext *ctx, SharedState *state) {
     SDL_RenderClear(ctx->renderer);
 
     int positions[NUM_LANES][2] = {
-        {350, 50},
-        {350, 450},
-        {50,  250},
-        {650, 250}
+        {350, 50},    /* North */
+        {350, 400},   /* South */
+        {50,  250},   /* East  */
+        {650, 250}    /* West  */
     };
 
     char buf[64];
+    int i;
+    for (i = 0; i < NUM_LANES; i++) {
+        draw_signal(ctx->renderer,
+                    positions[i][0],
+                    positions[i][1],
+                    state->signal[i]);
 
-    for (int i = 0; i < NUM_LANES; i++) {
-        draw_signal(ctx->renderer, positions[i][0], positions[i][1], state->signal[i]);
-
-        snprintf(buf, sizeof(buf), "%s  Q:%d", lane_name(i), state->queue_count[i]);
-        draw_text(ctx, buf, positions[i][0] - 10, positions[i][1] + 130);
+        snprintf(buf, sizeof(buf), "%s  Q:%d",
+                 lane_name(i), state->queue_count[i]);
+        draw_text(ctx, buf,
+                  positions[i][0] - 10,
+                  positions[i][1] + 130);
     }
 
-    snprintf(buf, sizeof(buf), "Total passed : %d", state->total_vehicles_passed);
+    snprintf(buf, sizeof(buf), "Total passed : %d",
+             state->total_vehicles_passed);
     draw_text(ctx, buf, 20, 20);
 
-    snprintf(buf, sizeof(buf), "Throughput   : %.1f v/min", state->throughput_per_min);
+    snprintf(buf, sizeof(buf), "Throughput   : %.1f v/min",
+             state->throughput_per_min);
     draw_text(ctx, buf, 20, 40);
 
     snprintf(buf, sizeof(buf), "Avg wait     : %.2f s",
@@ -95,7 +112,8 @@ void renderer_draw(RenderContext *ctx, SharedState *state) {
     draw_text(ctx, buf, 20, 60);
 
     if (state->emergency_active) {
-        snprintf(buf, sizeof(buf), "!! EMERGENCY: %s lane !!", lane_name(state->emergency_lane));
+        snprintf(buf, sizeof(buf), "!! EMERGENCY: %s lane !!",
+                 lane_name(state->emergency_lane));
         draw_text(ctx, buf, 20, 90);
     }
 
