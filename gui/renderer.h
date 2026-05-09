@@ -13,6 +13,7 @@ typedef struct {
     SDL_Window   *window;
     SDL_Renderer *renderer;
     TTF_Font     *font;
+    TTF_Font     *font_large;
 } RenderContext;
 
 int  renderer_init(RenderContext *ctx);
