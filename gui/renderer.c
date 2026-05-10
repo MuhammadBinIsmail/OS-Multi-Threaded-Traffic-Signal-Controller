@@ -80,9 +80,25 @@ static void spawn_anim(RenderContext *ctx, int lane,
             v->lane   = lane;
             v->x = (float)positions[lane][0];
             v->y = (float)positions[lane][1] + 60;
-            v->tx = 415;
-            v->ty = 315;
-            v->speed = 3.0f;
+            switch (lane) {
+                case NORTH:
+                    v->x = 420; v->y = 280;
+                    v->tx = 420; v->ty = 310;
+                    break;
+                case SOUTH:
+                    v->x = 420; v->y = 390;
+                    v->tx = 420; v->ty = 360;
+                    break;
+                case EAST:
+                    v->x = 380; v->y = 325;
+                    v->tx = 410; v->ty = 325;
+                    break;
+                case WEST:
+                    v->x = 490; v->y = 325;
+                    v->tx = 460; v->ty = 325;
+                    break;
+            }
+            v->speed = 2.5f;
             break;
         }
     }
@@ -107,30 +123,34 @@ static void update_anim_vehicles(RenderContext *ctx) {
 
 static void draw_bar_chart(RenderContext *ctx, SharedState *state) {
     int base_x = 20;
-    int base_y = 630;
+    int base_y = 620;
     int bar_w  = 30;
     int gap    = 50;
-    int max_h  = 50;
-
-    draw_text(ctx, "Per-lane vehicles passed:", base_x, base_y - 20, WHITE);
+    int max_h  = 40;
 
     int i;
     for (i = 0; i < NUM_LANES; i++) {
         int count = state->vehicles_per_lane[i];
-        int h = (count > 0) ? (count * 3) : 2;
+        int h = (count > 0) ? (count * 2) : 2;
         if (h > max_h) h = max_h;
+
         SDL_Color col = GREEN_C;
         if (count > 15) col = YELLOW_C;
         if (count > 30) col = RED_C;
+
         SDL_SetRenderDrawColor(ctx->renderer, col.r, col.g, col.b, 255);
         SDL_Rect bar = {base_x + i * gap, base_y - h, bar_w, h};
         SDL_RenderFillRect(ctx->renderer, &bar);
+
         char buf[16];
-        snprintf(buf, sizeof(buf), "%s", lane_name(i));
-        draw_text(ctx, buf, base_x + i * gap - 4, base_y + 4, WHITE);
         snprintf(buf, sizeof(buf), "%d", count);
-        draw_text(ctx, buf, base_x + i * gap + 8, base_y - h - 18, WHITE);
+        draw_text(ctx, buf, base_x + i * gap + 6, base_y - h - 18, WHITE);
+
+        snprintf(buf, sizeof(buf), "%s", lane_name(i));
+        draw_text(ctx, buf, base_x + i * gap - 4, base_y + 6, WHITE);
     }
+
+    draw_text(ctx, "Per-lane vehicles passed:", base_x, base_y + 24, WHITE);
 }
 
 static void draw_timer(RenderContext *ctx) {
