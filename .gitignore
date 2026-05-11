@@ -1,4 +1,9 @@
 build/
 *.o
 *.d
+*.cmake
+CMakeCache.txt
+CMakeFiles/
+Makefile
 traffic
+cmake_install.cmake
